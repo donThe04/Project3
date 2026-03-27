@@ -1,0 +1,16 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /gps
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3308/GPS?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
