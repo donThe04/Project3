@@ -1,0 +1,39 @@
+# --- GENERAL ---
+.DS_Store
+.vscode/
+.idea/
+*.log
+*.tmp
+
+# --- FRONTEND (React + Vite + TS) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/npm-debug.log*
+frontend/yarn-error.log*
+
+# --- BACKEND (Java Spring Boot) ---
+backend/target/
+backend/*.jar
+backend/*.war
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/build/
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# --- HARDWARE (ESP32 - PlatformIO / Arduino) ---
+hardware/.pio/
+hardware/.vscode/
+hardware/build/
+hardware/out/
+hardware/*.hex
+hardware/*.bin
+hardware/sdkconfig
+hardware/managed_components/
+
+# --- DATABASE (Nếu có dùng Docker hoặc DB local) ---
+mysql_data/
+postgres_data/
