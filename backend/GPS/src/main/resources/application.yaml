@@ -9,8 +9,15 @@ spring:
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+# Cấu hình MQTT kết nối tới HiveMQ Cloud
+mqtt:
+  broker-url: ssl://99688c52187c434599c26e3768a32a74.s1.eu.hivemq.cloud:8883
+  client-id: spring-boot-backend-${random.value}
+  username: dongthe04
+  password: Dongvanthe@2606
+  topic: v1/gps/location

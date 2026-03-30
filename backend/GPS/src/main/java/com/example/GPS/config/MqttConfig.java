@@ -1,73 +1,57 @@
 package com.example.GPS.config;
 
-import com.example.GPS.entity.GpsData;
-import com.example.GPS.repository.GpsRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.integration.config.EnableIntegration;
-import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.channel.DirectChannel;
+import org.springframework.integration.core.MessageProducer;
 import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory;
 import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
-
-import java.time.LocalDateTime;
+import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
+import org.springframework.messaging.MessageChannel;
 
 @Configuration
-@EnableIntegration
 public class MqttConfig {
 
-    // 1. Định nghĩa ObjectMapper xử lý được thời gian
-    @Bean
-    public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        return mapper;
-    }
+    @Value("${mqtt.broker-url}")
+    private String brokerUrl;
+    @Value("${mqtt.client-id}")
+    private String clientId;
+    @Value("${mqtt.username}")
+    private String username;
+    @Value("${mqtt.password}")
+    private String password;
+    @Value("${mqtt.topic}")
+    private String topic;
 
-    // 2. Cấu hình kết nối tới HiveMQ Cloud
     @Bean
     public MqttPahoClientFactory mqttClientFactory() {
         DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
         MqttConnectOptions options = new MqttConnectOptions();
-        options.setServerURIs(new String[] { "ssl://99688c52187c434599c26e3768a32a74.s1.eu.hivemq.cloud:8883" });
-        options.setUserName("dongthe04");
-        options.setPassword("Dongvanthe@2606".toCharArray());
+        options.setServerURIs(new String[]{brokerUrl});
+        options.setUserName(username);
+        options.setPassword(password.toCharArray());
         options.setCleanSession(true);
+        options.setAutomaticReconnect(true);
         factory.setConnectionOptions(options);
         return factory;
     }
 
-    // 3. ĐÂY LÀ PHẦN QUAN TRỌNG NHẤT: Luồng xử lý dữ liệu tập trung
     @Bean
-    public IntegrationFlow mqttInboundFlow(MqttPahoClientFactory mqttClientFactory,
-                                           GpsRepository gpsRepository,
-                                           ObjectMapper objectMapper) {
-        return IntegrationFlow
-                // A. Đọc dữ liệu từ Topic của ESP32
-                .from(new MqttPahoMessageDrivenChannelAdapter(
-                        "SpringBoot_Client_GPS_" + System.currentTimeMillis(),
-                        mqttClientFactory,
-                        "v1/gps/location"))
-                // B. Xử lý dữ liệu nhận được
-                .handle(message -> {
-                    String payload = (String) message.getPayload();
-                    System.out.println("\n--- [Dữ liệu mới từ ESP32] ---");
-                    System.out.println("Nội dung: " + payload);
+    public MessageChannel mqttInputChannel() {
+        return new DirectChannel();
+    }
 
-                    try {
-                        // Giải mã JSON và lưu vào MySQL
-                        GpsData data = objectMapper.readValue(payload, GpsData.class);
-                        data.setTimestamp(LocalDateTime.now());
-
-                        gpsRepository.save(data);
-                        System.out.println("✅ Đã lưu vào MySQL: [Lat: " + data.getLat() + ", Lng: " + data.getLng() + "]");
-                    } catch (Exception e) {
-                        System.err.println("❌ Lỗi xử lý JSON hoặc Database: " + e.getMessage());
-                    }
-                })
-                .get();
+    @Bean
+    public MessageProducer inbound() {
+        MqttPahoMessageDrivenChannelAdapter adapter =
+                new MqttPahoMessageDrivenChannelAdapter(clientId, mqttClientFactory(), topic);
+        adapter.setCompletionTimeout(5000);
+        adapter.setConverter(new DefaultPahoMessageConverter());
+        adapter.setQos(1);
+        adapter.setOutputChannel(mqttInputChannel());
+        return adapter;
     }
 }
