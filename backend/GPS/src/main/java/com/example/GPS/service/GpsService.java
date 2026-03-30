@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,33 +23,40 @@ public class GpsService {
 
     GpsRepository gpsRepository;
 
-    // Tự khởi tạo ObjectMapper ngay tại đây thay vì chờ Spring Inject
+    // 1. Khai báo "Cái loa" để đẩy dữ liệu xuống Frontend qua WebSocket
+    SimpMessagingTemplate messagingTemplate;
+
     ObjectMapper objectMapper = new ObjectMapper();
 
-    // =========================================================================
-    // 1. LẮNG NGHE MQTT VÀ LƯU VÀO DATABASE
-    // =========================================================================
     @ServiceActivator(inputChannel = "mqttInputChannel")
     public void receiveGpsDataFromMqtt(String payload) {
         System.out.println("🔥 Đã nhận dữ liệu từ ESP32 qua HiveMQ: " + payload);
 
         try {
-            // Đọc chuỗi JSON
             JsonNode jsonNode = objectMapper.readTree(payload);
 
-            // Tạo entity mới để lưu database
             GpsData newData = new GpsData();
             newData.setLat(jsonNode.get("lat").asDouble());
             newData.setLng(jsonNode.get("lng").asDouble());
             newData.setSpeed(jsonNode.get("speed").asDouble());
             newData.setSats(jsonNode.get("sats").asInt());
-
-            // Gán thời gian hiện tại
             newData.setTimestamp(LocalDateTime.now());
 
-            // Lưu xuống MySQL
+            // Lưu xuống MySQL (Để phục vụ việc xem lại Lịch sử)
             gpsRepository.save(newData);
             System.out.println("✅ Đã lưu tọa độ vào Database thành công!");
+
+            // 2. CHÍNH LÀ ĐÂY: Đẩy dữ liệu này xuống Topic mà Frontend đang lắng nghe
+            // "/topic/locations" phải khớp với wsService.subscribe bên Frontend
+            messagingTemplate.convertAndSend("/topic/locations", GpsResponse.builder()
+                    .lat(newData.getLat())
+                    .lng(newData.getLng())
+                    .speed(newData.getSpeed())
+                    .sats(newData.getSats())
+                    .timestamp(newData.getTimestamp())
+                    .build());
+
+            System.out.println("🚀 Đã phát tín hiệu Real-time tới Frontend!");
 
         } catch (Exception e) {
             System.err.println("❌ Lỗi khi xử lý dữ liệu MQTT: " + e.getMessage());
